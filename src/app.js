@@ -6,6 +6,11 @@ const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const gradeRoutes = require('./routes/gradeRoutes');
+const userRoutes = require('./routes/userRoutes');
+const performanceRoutes = require('./routes/performanceRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+
+
 
 
 // Load environment variables
@@ -31,6 +36,16 @@ app.use('/api/attendance', attendanceRoutes);
 
 // Add the grade routes
 app.use('/api/grades', gradeRoutes)
+
+// Add user search route
+app.use('/api/users', userRoutes);
+
+// Add performance routes
+app.use('/api/performance', performanceRoutes);
+
+// Add  notification routes.
+app.use('/api/notifications', notificationRoutes);
+
 
 app.get("/", (req, res) => {
   res.send("API is running...");

@@ -1,9 +1,9 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const performanceSchema = new mongoose.Schema({
   student: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
+    ref: 'User',
     required: true,
   },
   subject: {
@@ -17,11 +17,11 @@ const performanceSchema = new mongoose.Schema({
     max: 100,
   },
   feedback: {
-    type: String,
+    type: String, // Teacher's feedback
   },
-  teacher: {
+  gradedBy: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
+    ref: 'User', // Teacher who graded
     required: true,
   },
   date: {
@@ -30,5 +30,5 @@ const performanceSchema = new mongoose.Schema({
   },
 });
 
-const Performance = mongoose.model("Performance", performanceSchema);
+const Performance = mongoose.model('Performance', performanceSchema);
 module.exports = Performance;
