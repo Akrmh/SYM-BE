@@ -17,11 +17,16 @@ const performanceSchema = new mongoose.Schema({
     max: 100,
   },
   feedback: {
-    type: String, // Teacher's feedback
+    type: String, // Optional feedback
   },
   gradedBy: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User', // Teacher who graded
+    ref: 'User', // If a teacher graded, store their ID
+    default: null, // Admins may add records without grading
+  },
+  addedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User', // Admin or Teacher who added the record
     required: true,
   },
   date: {

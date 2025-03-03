@@ -10,6 +10,8 @@ const studentRoutes = require('./routes/studentRoutes');
 const teacherRoutes = require('./routes/teacherRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const searchRoutes = require('./routes/searchRoutes');
+const adminRoutes = require('./routes/adminRoutes'); // Import admin routes
+
 
 dotenv.config();
 connectDB();
@@ -21,6 +23,9 @@ const io = socketIo(server);
 app.use(cors());
 app.use(express.json());
 
+// Routes
+app.use('/api/admin', adminRoutes); // Mount admin routes
+app.use('/api/admins', adminRoutes)
 app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/teachers', teacherRoutes);
@@ -35,6 +40,11 @@ io.on('connection', (socket) => {
   });
 });
 
+// Health Check Route
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ message: "Server is running!" });
+});
+
 server.listen(process.env.PORT || 5000, () => {
-  console.log('Server running...');
+  console.log(`Server running in ${process.env.PORT} `);
 });

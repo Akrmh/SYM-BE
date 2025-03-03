@@ -1,22 +1,31 @@
 const express = require('express');
-const protect = require('../middleware/authMiddleware');
+const bcrypt = require('bcryptjs');
+const { protect, authorizeRoles } = require('../middleware/authMiddleware');
 const User = require('../models/user');
 
 const router = express.Router();
 
-// Create a teacher (Admin only)
-router.post('/', protect(['admin']), async (req, res) => {
+// ✅ CREATE: Add a Teacher (Admin Only)
+router.post('/', protect, authorizeRoles('admin'), async (req, res) => {
   const { name, email, password, nationality, degree } = req.body;
 
+  // Check if user already exists
   const userExists = await User.findOne({ email });
-
   if (userExists) {
     return res.status(400).json({ message: 'User already exists' });
   }
 
-  const teacher = new User({ name, email, password, role: 'teacher', nationality, degree });
-
   try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const teacher = new User({
+      name,
+      email,
+      password: hashedPassword,
+      role: 'teacher',
+      nationality,
+      degree,
+    });
+
     await teacher.save();
     res.status(201).json({ message: 'Teacher created successfully' });
   } catch (error) {
@@ -24,23 +33,36 @@ router.post('/', protect(['admin']), async (req, res) => {
   }
 });
 
-// Get all teachers (Admin only)
-router.get('/', protect(['admin']), async (req, res) => {
+// ✅ READ: Get All Teachers (Admin Only)
+router.get('/', protect, authorizeRoles('admin'), async (req, res) => {
   try {
-    const teachers = await User.find({ role: 'teacher' });
+    const teachers = await User.find({ role: 'teacher' }).select('-password');
     res.json(teachers);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching teachers', error: error.message });
   }
 });
 
-// Update teacher (Admin only)
-router.put('/:id', protect(['admin']), async (req, res) => {
+// ✅ READ: Get a Single Teacher by ID (Admin Only)
+router.get('/:id', protect, authorizeRoles('admin'), async (req, res) => {
+  try {
+    const teacher = await User.findById(req.params.id).select('-password');
+    if (!teacher || teacher.role !== 'teacher') {
+      return res.status(404).json({ message: 'Teacher not found' });
+    }
+    res.json(teacher);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching teacher', error: error.message });
+  }
+});
+
+// ✅ UPDATE: Modify Teacher Details (Admin Only)
+router.put('/:id', protect, authorizeRoles('admin'), async (req, res) => {
   const { name, email, nationality, degree } = req.body;
 
   try {
     const teacher = await User.findById(req.params.id);
-    if (!teacher) {
+    if (!teacher || teacher.role !== 'teacher') {
       return res.status(404).json({ message: 'Teacher not found' });
     }
 
@@ -56,8 +78,8 @@ router.put('/:id', protect(['admin']), async (req, res) => {
   }
 });
 
-// Delete teacher (Admin only)
-router.delete('/:id', protect(['admin']), async (req, res) => {
+// ✅ DELETE: Remove a Teacher (Admin Only)
+router.delete('/:id', protect, authorizeRoles('admin'), async (req, res) => {
   try {
     const teacher = await User.findByIdAndDelete(req.params.id);
     if (!teacher) {

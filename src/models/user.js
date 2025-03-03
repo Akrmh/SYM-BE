@@ -1,34 +1,15 @@
 const mongoose = require("mongoose");
 
-const performanceSchema = new mongoose.Schema({
-  student: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: true,
-  },
-  subject: {
+const userSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  role: {
     type: String,
-    required: true,
-  },
-  score: {
-    type: Number,
-    required: true,
-    min: 0,
-    max: 100,
-  },
-  feedback: {
-    type: String,
-  },
-  teacher: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: true,
-  },
-  date: {
-    type: Date,
-    default: Date.now,
+    enum: ["admin", "teacher", "student"],
+    default: "student",
   },
 });
 
-const Performance = mongoose.model("Performance", performanceSchema);
-module.exports = Performance;
+const User = mongoose.model("User", userSchema);
+module.exports = User;

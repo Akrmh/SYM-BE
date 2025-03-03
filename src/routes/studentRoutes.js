@@ -1,32 +1,31 @@
 const express = require('express');
-const protect = require('../middleware/authMiddleware');
+const bcrypt = require('bcryptjs');
+const { protect, authorizeRoles } = require('../middleware/authMiddleware');
 const User = require('../models/user');
 
 const router = express.Router();
 
-// Create a student (Admin and Teacher roles allowed)
-router.post('/', protect(['admin', 'teacher']), async (req, res) => {
+// ✅ CREATE: Add a Student (Only Admins & Teachers can create)
+router.post('/', protect, authorizeRoles('admin', 'teacher'), async (req, res) => {
   const { name, email, password, nationality, degree } = req.body;
 
-  // Check if user already exists
+  // Check if the user already exists
   const userExists = await User.findOne({ email });
-
   if (userExists) {
     return res.status(400).json({ message: 'User already exists' });
   }
 
-  // Create a new student
-  const student = new User({
-    name,
-    email,
-    password,
-    role: 'student', // Force the role to be 'student' for student creation
-    nationality,
-    degree,
-  });
-
   try {
-    // Save the student
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const student = new User({
+      name,
+      email,
+      password: hashedPassword,
+      role: 'student', // Ensure only students are created
+      nationality,
+      degree,
+    });
+
     await student.save();
     res.status(201).json({ message: 'Student created successfully' });
   } catch (error) {
@@ -34,23 +33,36 @@ router.post('/', protect(['admin', 'teacher']), async (req, res) => {
   }
 });
 
-// Get all students (Admin and teachers)
-router.get('/', protect(['admin', 'teacher']), async (req, res) => {
+// ✅ READ: Get All Students (Only Admins & Teachers)
+router.get('/', protect, authorizeRoles('admin', 'teacher'), async (req, res) => {
   try {
-    const students = await User.find({ role: 'student' });
+    const students = await User.find({ role: 'student' }).select('-password');
     res.json(students);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching students', error: error.message });
   }
 });
 
-// Update student (Admin and Teacher roles allowed)
-router.put('/:id', protect(['admin', 'teacher']), async (req, res) => {
+// ✅ READ: Get a Single Student by ID (Only Admins & Teachers)
+router.get('/:id', protect, authorizeRoles('admin', 'teacher'), async (req, res) => {
+  try {
+    const student = await User.findById(req.params.id).select('-password');
+    if (!student || student.role !== 'student') {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+    res.json(student);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching student', error: error.message });
+  }
+});
+
+// ✅ UPDATE: Modify Student Details (Only Admins & Teachers)
+router.put('/:id', protect, authorizeRoles('admin', 'teacher'), async (req, res) => {
   const { name, email, nationality, degree } = req.body;
 
   try {
     const student = await User.findById(req.params.id);
-    if (!student) {
+    if (!student || student.role !== 'student') {
       return res.status(404).json({ message: 'Student not found' });
     }
 
@@ -66,8 +78,8 @@ router.put('/:id', protect(['admin', 'teacher']), async (req, res) => {
   }
 });
 
-// Delete student (Admin and Teacher roles allowed)
-router.delete('/:id', protect(['admin', 'teacher']), async (req, res) => {
+// ✅ DELETE: Remove a Student (Only Admins & Teachers)
+router.delete('/:id', protect, authorizeRoles('admin', 'teacher'), async (req, res) => {
   try {
     const student = await User.findByIdAndDelete(req.params.id);
     if (!student) {

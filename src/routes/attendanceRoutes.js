@@ -1,5 +1,5 @@
 const express = require("express");
-const protect = require("../middleware/authMiddleware.js");
+const { protect, authorizeRoles } = require("../middleware/authMiddleware.js");
 const Attendance = require("../models/Attendance.js");
 const Notification = require("../models/Notification.js");
 
@@ -10,7 +10,7 @@ const router = express.Router();
  * @desc Mark student attendance (Admin & Teacher)
  * @access Admin, Teacher
  */
-router.post("/mark", protect(["teacher", "admin"]), async (req, res) => {
+router.post("/mark", protect, authorizeRoles("teacher", "admin"), async (req, res) => {
   try {
     const { studentId, status, date } = req.body;
 
@@ -18,24 +18,20 @@ router.post("/mark", protect(["teacher", "admin"]), async (req, res) => {
       return res.status(400).json({ message: "Student ID and status are required." });
     }
 
-    const attendance = new Attendance({
+    const attendance = await Attendance.create({
       student: studentId,
       markedBy: req.user.id,
       status,
       date: date || new Date(),
     });
 
-    await attendance.save();
-
     // Send notification to student
-    const notification = new Notification({
+    await Notification.create({
       recipient: studentId,
       sender: req.user.id,
       type: "attendance",
       message: `Your attendance for ${attendance.date.toDateString()} is marked as ${status}.`,
     });
-
-    await notification.save();
 
     res.status(201).json({ message: "Attendance marked successfully", attendance });
   } catch (error) {
@@ -48,15 +44,11 @@ router.post("/mark", protect(["teacher", "admin"]), async (req, res) => {
  * @desc Get attendance record for a specific student (Admin & Teacher)
  * @access Admin, Teacher
  */
-router.get("/student/:studentId", protect(["teacher", "admin"]), async (req, res) => {
+router.get("/student/:studentId", protect, authorizeRoles("teacher", "admin"), async (req, res) => {
   try {
     const { studentId } = req.params;
 
     const attendanceRecords = await Attendance.find({ student: studentId }).sort({ date: -1 });
-
-    if (!attendanceRecords.length) {
-      return res.status(404).json({ message: "No attendance records found for this student." });
-    }
 
     res.json({ attendance: attendanceRecords });
   } catch (error) {
@@ -69,13 +61,9 @@ router.get("/student/:studentId", protect(["teacher", "admin"]), async (req, res
  * @desc Get logged-in student's own attendance
  * @access Student
  */
-router.get("/me", protect(["student"]), async (req, res) => {
+router.get("/me", protect, authorizeRoles("student"), async (req, res) => {
   try {
     const attendanceRecords = await Attendance.find({ student: req.user.id }).sort({ date: -1 });
-
-    if (!attendanceRecords.length) {
-      return res.status(404).json({ message: "No attendance records found." });
-    }
 
     res.json({ attendance: attendanceRecords });
   } catch (error) {

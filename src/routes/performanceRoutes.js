@@ -2,6 +2,7 @@ const express = require("express");
 const protect = require("../middleware/authMiddleware.js");
 const Performance = require("../models/Performance.js");
 const Notification = require("../models/Notification.js");
+const User = require("../models/user.js"); // Ensure student exists
 
 const router = express.Router();
 
@@ -18,6 +19,12 @@ router.post("/add", protect(["teacher", "admin"]), async (req, res) => {
       return res.status(400).json({ message: "Student ID, subject, and score are required." });
     }
 
+    // Check if student exists
+    const student = await User.findById(studentId);
+    if (!student || student.role !== "student") {
+      return res.status(404).json({ message: "Student not found." });
+    }
+
     const performance = new Performance({
       student: studentId,
       subject,
@@ -29,14 +36,12 @@ router.post("/add", protect(["teacher", "admin"]), async (req, res) => {
     await performance.save();
 
     // Send notification to student
-    const notification = new Notification({
+    await Notification.create({
       recipient: studentId,
       sender: req.user.id,
       type: "performance",
       message: `New grade added for ${subject}: ${score}.`,
     });
-
-    await notification.save();
 
     res.status(201).json({ message: "Performance record added successfully", performance });
   } catch (error) {
@@ -53,7 +58,7 @@ router.get("/student/:studentId", protect(["teacher", "admin"]), async (req, res
   try {
     const { studentId } = req.params;
 
-    const performanceRecords = await Performance.find({ student: studentId }).sort({ date: -1 });
+    const performanceRecords = await Performance.find({ student: studentId }).sort({ _id: -1 });
 
     if (!performanceRecords.length) {
       return res.status(404).json({ message: "No performance records found for this student." });
@@ -72,7 +77,7 @@ router.get("/student/:studentId", protect(["teacher", "admin"]), async (req, res
  */
 router.get("/me", protect(["student"]), async (req, res) => {
   try {
-    const performanceRecords = await Performance.find({ student: req.user.id }).sort({ date: -1 });
+    const performanceRecords = await Performance.find({ student: req.user.id }).sort({ _id: -1 });
 
     if (!performanceRecords.length) {
       return res.status(404).json({ message: "No performance records found." });
@@ -98,19 +103,28 @@ router.put("/update/:id", protect(["teacher", "admin"]), async (req, res) => {
       return res.status(404).json({ message: "Performance record not found." });
     }
 
-    performance.score = score !== undefined ? score : performance.score;
-    performance.feedback = feedback || performance.feedback;
-    await performance.save();
+    // Ensure score is a valid number if provided
+    if (score !== undefined && isNaN(score)) {
+      return res.status(400).json({ message: "Score must be a valid number." });
+    }
+
+    const updatedFields = {};
+    if (score !== undefined) updatedFields.score = score;
+    if (feedback) updatedFields.feedback = feedback;
+
+    if (Object.keys(updatedFields).length === 0) {
+      return res.status(400).json({ message: "No updates provided." });
+    }
+
+    performance = await Performance.findByIdAndUpdate(req.params.id, updatedFields, { new: true });
 
     // Send notification to student about grade update
-    const notification = new Notification({
+    await Notification.create({
       recipient: performance.student,
       sender: req.user.id,
       type: "performance",
       message: `Your grade for ${performance.subject} has been updated to ${performance.score}.`,
     });
-
-    await notification.save();
 
     res.json({ message: "Performance record updated successfully", performance });
   } catch (error) {
